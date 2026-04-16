@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sneaker Word Search</title>
+    <style>
+        /* --- General & Theme Styles --- */
+        body {
+            background-color: #f4f1ea; 
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            color: #3e362e; 
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- Navigation Bar --- */
+        .top-nav {
+            background-color: #5a4b3c; 
+            padding: 15px 0;
+            text-align: center;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .top-nav ul {
+            list-style-type: none; 
+            margin: 0;
+            padding: 0;
+        }
+        .top-nav li { display: inline-block; margin: 0 20px; }
+        .top-nav a {
+            color: #f4f1ea; 
+            text-decoration: none;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .top-nav a:hover { color: #ffffff; text-decoration: underline; }
+
+        /* --- Game Layout --- */
+        .game-container {
+            display: flex;
+            gap: 40px;
+            background-color: #e5e0d8;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border: 2px solid #5a4b3c;
+        }
+
+        /* --- Word Search Grid --- */
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(12, 40px);
+            grid-template-rows: repeat(12, 40px);
+            gap: 2px;
+            background-color: #5a4b3c;
+            padding: 2px;
+            border-radius: 5px;
+            user-select: none; /* Prevents text highlighting when dragging */
+        }
+        .cell {
+            background-color: #f4f1ea;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .cell.selected {
+            background-color: #6b705c; /* Olive green for current selection */
+            color: #f4f1ea;
+        }
+        .cell.found {
+            background-color: #ffaa00; /* Highlight color for found words */
+            color: #fff;
+        }
+
+        /* --- Word Bank --- */
+        .word-bank {
+            display: flex;
+            flex-direction: column;
+            width: 200px;
+        }
+        .word-bank h3 { margin-top: 0; border-bottom: 2px solid #5a4b3c; padding-bottom: 10px; }
+        .word-item {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .word-item.found-text {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        /* --- Controls --- */
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #5a4b3c;
+            color: #f4f1ea;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background-color: #6b705c; }
+        
+        #message {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #6b705c;
+            min-height: 24px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <nav class="top-nav">
+        <ul>
+            <li><a href="index.html">Resume</a></li>
+            <li><a href="fromScratch.html">Sneakers</a></li>
+            <li><a href="ai.html">Word Search</a></li>
+        </ul>
+    </nav>
+
+    <h2>Sneaker Head Word Search</h2>
+    <p>Click and drag across the letters to find the hidden hype terms.</p>
+
+    <div class="game-container">
+        <div id="grid"></div>
+
+        <div class="word-bank">
+            <h3>Word Bank</h3>
+            <div id="word-list"></div>
+            <button onclick="initGame()">Restart Game</button>
+        </div>
+    </div>
+    
+    <div id="message"></div>
+
+    <script>
+        // --- Game Configuration ---
+        const GRID_SIZE = 12;
+        const WORDS_PER_GAME = 8;
+        
+        // Expanded Master Word Bank (20 words)
+        const MASTER_WORD_BANK = [
+            "TRAVIS", "CACTUS", "JORDAN", "NIKE", "MOCHA", "FRAGMENT", 
+            "GRAIL", "SWOOSH", "RETRO", "CANARY", "OLIVE", "PHANTOM", 
+            "VELVET", "DUNK", "REVERSE", "HYPE", "SNEAKER", "LACES", 
+            "SOLE", "COLLAB"
+        ];
+        
+        let grid = [];
+        let currentWords = []; // The 8 words selected for the current round
+        let wordsToFind = [];  // The words left to find
+        let isDragging = false;
+        let selectedCells = [];
+        let startCell = null;
+
+        const gridElement = document.getElementById('grid');
+        const wordListElement = document.getElementById('word-list');
+        const messageElement = document.getElementById('message');
+
+        // --- Initialization ---
+        function initGame() {
+            grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(''));
+            messageElement.innerText = '';
+            
+            // Randomly select 8 words from the master bank
+            let shuffledBank = [...MASTER_WORD_BANK].sort(() => 0.5 - Math.random());
+            currentWords = shuffledBank.slice(0, WORDS_PER_GAME);
+            wordsToFind = [...currentWords];
+            
+            // Place words
+            currentWords.forEach(word => placeWord(word));
+            
+            // Fill empty spaces with random letters
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (grid[r][c] === '') {
+                        grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+                    }
+                }
+            }
+            
+            renderGrid();
+            renderWordList();
+        }
+
+        // --- Word Placement Logic ---
+        function placeWord(word) {
+            const directions = [
+                {r: 0, c: 1},  // Horizontal right
+                {r: 1, c: 0},  // Vertical down
+                {r: 1, c: 1},  // Diagonal down-right
+            ];
+            
+            let placed = false;
+            while (!placed) {
+                let dir = directions[Math.floor(Math.random() * directions.length)];
+                let row = Math.floor(Math.random() * GRID_SIZE);
+                let col = Math.floor(Math.random() * GRID_SIZE);
+                
+                if (canPlace(word, row, col, dir.r, dir.c)) {
+                    for (let i = 0; i < word.length; i++) {
+                        grid[row + i * dir.r][col + i * dir.c] = word[i];
+                    }
+                    placed = true;
+                }
+            }
+        }
+
+        function canPlace(word, row, col, rowDir, colDir) {
+            if (row + word.length * rowDir > GRID_SIZE || col + word.length * colDir > GRID_SIZE) return false;
+            for (let i = 0; i < word.length; i++) {
+                let cell = grid[row + i * rowDir][col + i * colDir];
+                if (cell !== '' && cell !== word[i]) return false;
+            }
+            return true;
+        }
+
+        // --- Rendering ---
+        function renderGrid() {
+            gridElement.innerHTML = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    let cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.innerText = grid[r][c];
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    
+                    // Mouse Events for Dragging
+                    cell.addEventListener('mousedown', startSelection);
+                    cell.addEventListener('mouseover', updateSelection);
+                    cell.addEventListener('mouseup', endSelection);
+                    
+                    gridElement.appendChild(cell);
+                }
+            }
+            gridElement.addEventListener('mouseleave', () => {
+                if (isDragging) clearSelection();
+                isDragging = false;
+            });
+        }
+
+        function renderWordList() {
+            wordListElement.innerHTML = '';
+            currentWords.forEach(word => {
+                let div = document.createElement('div');
+                div.classList.add('word-item');
+                div.id = `word-${word}`;
+                div.innerText = word;
+                if (!wordsToFind.includes(word)) div.classList.add('found-text');
+                wordListElement.appendChild(div);
+            });
+        }
+
+        // --- Interaction Logic ---
+        function startSelection(e) {
+            isDragging = true;
+            clearSelection();
+            startCell = e.target;
+            selectCell(e.target);
+        }
+
+        function updateSelection(e) {
+            if (!isDragging) return;
+            clearSelection();
+            
+            let startR = parseInt(startCell.dataset.row);
+            let startC = parseInt(startCell.dataset.col);
+            let currR = parseInt(e.target.dataset.row);
+            let currC = parseInt(e.target.dataset.col);
+            
+            // Check if movement is straight line (horizontal, vertical, diagonal)
+            let rDiff = currR - startR;
+            let cDiff = currC - startC;
+            
+            if (startR === currR || startC === currC || Math.abs(rDiff) === Math.abs(cDiff)) {
+                let rStep = rDiff === 0 ? 0 : rDiff / Math.abs(rDiff);
+                let cStep = cDiff === 0 ? 0 : cDiff / Math.abs(cDiff);
+                let steps = Math.max(Math.abs(rDiff), Math.abs(cDiff));
+                
+                for (let i = 0; i <= steps; i++) {
+                    let r = startR + (i * rStep);
+                    let c = startC + (i * cStep);
+                    let targetCell = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
+                    selectCell(targetCell);
+                }
+            }
+        }
+
+        function endSelection() {
+            isDragging = false;
+            let selectedWord = selectedCells.map(c => c.innerText).join('');
+            let reversedWord = selectedWord.split('').reverse().join('');
+            
+            if (wordsToFind.includes(selectedWord) || wordsToFind.includes(reversedWord)) {
+                let found = wordsToFind.includes(selectedWord) ? selectedWord : reversedWord;
+                wordsToFind = wordsToFind.filter(w => w !== found);
+                selectedCells.forEach(c => c.classList.add('found'));
+                document.getElementById(`word-${found}`).classList.add('found-text');
+                
+                if (wordsToFind.length === 0) {
+                    messageElement.innerText = "Awesome! You found all the hype gear!";
+                }
+            }
+            clearSelection();
+        }
+
+        function selectCell(cell) {
+            if (cell && !selectedCells.includes(cell)) {
+                cell.classList.add('selected');
+                selectedCells.push(cell);
+            }
+        }
+
+        function clearSelection() {
+            selectedCells.forEach(c => c.classList.remove('selected'));
+            selectedCells = [];
+        }
+
+        // Start game on load
+        window.onload = initGame;
+    </script>
+</body>
+</html>

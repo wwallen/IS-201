@@ -78,19 +78,30 @@ a:hover {
 .logo-left {
     position: absolute;
     top: 50%;                         
-    left: 16.66%;                     
+    left: 10%;                     
     transform: translate(-50%, -50%); 
-    width: 180px;                    
+    width: 15vw;       
+    max-width: 180px;  
+    min-width: 50px;   
     height: auto;
 }
 
 .logo-right {
     position: absolute;
     top: 50%;                         
-    right: 16.66%;                   
+    right: 10%;                   
     transform: translate(50%, -50%);  
-    width: 180px;                     
+    width: 15vw;       
+    max-width: 180px;
+    min-width: 50px;
     height: auto;
+}
+
+
+@media (max-width: 768px) {
+    .logo-left, .logo-right {
+        display: none;
+    }
 }
 
 
